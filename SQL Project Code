@@ -1,0 +1,130 @@
+/*My Own Investigation*/
+
+/* Basic Table of Information */
+
+SELECT i.store_id t1storeid,
+		CASE WHEN cat.name IN ('Animation','Children','Classics','Comedy','Family', 'Music') THEN
+							   'Family Movies' ELSE 'Other Movies' END AS movie_categories,
+			cat.name catname, pay.amount payamt, DATE_TRUNC('year', rental_date)
+FROM category cat
+JOIN film_category fc
+ON cat.category_id = fc.category_id
+JOIN film f
+ON f.film_id = fc.film_id
+JOIN inventory i
+ON i.film_id = f.film_id
+JOIN rental r
+ON i.inventory_id = r.inventory_id
+JOIN payment pay
+ON r.rental_id = pay.rental_id
+
+
+/* First Slide */
+
+WITH t1 AS (SELECT i.store_id,
+				CASE WHEN cat.name IN ('Animation','Children','Classics','Comedy','Family', 'Music') THEN
+									   'Family Movies' ELSE 'Other Movies' END AS movie_categories,
+					cat.name movie_type, pay.amount t1payamt, f.title
+			FROM category cat
+			JOIN film_category fc
+			ON cat.category_id = fc.category_id
+			JOIN film f
+			ON f.film_id = fc.film_id
+			JOIN inventory i
+			ON i.film_id = f.film_id
+			JOIN rental r
+			ON i.inventory_id = r.inventory_id
+			JOIN payment pay
+			ON r.rental_id = pay.rental_id)
+SELECT store_id,movie_categories, movie_type, COUNT(*), SUM(t1payamt)
+FROM t1
+GROUP BY 1,2,3
+ORDER BY 1,2
+
+/* Second Slide */
+
+WITH t1 AS (SELECT i.store_id t1storeid,
+				CASE WHEN cat.name IN ('Animation','Children','Classics','Comedy','Family', 'Music') THEN
+									   'Family Movies' ELSE 'Other Movies' END AS movie_categories,
+					cat.name movie_type, pay.amount profit, f.title movie_title, f.film_id t1filmid
+			FROM category cat
+			JOIN film_category fc
+			ON cat.category_id = fc.category_id
+			JOIN film f
+			ON f.film_id = fc.film_id
+			JOIN inventory i
+			ON i.film_id = f.film_id
+			JOIN rental r
+			ON i.inventory_id = r.inventory_id
+			JOIN payment pay
+			ON r.rental_id = pay.rental_id)
+SELECT t1storeid, movie_title, movie_categories, movie_type, SUM(profit)
+FROM t1
+JOIN film_actor fa
+ON fa.film_id = t1filmid
+JOIN actor ac
+ON fa.actor_id = ac.actor_id
+GROUP BY 1,2,3,4
+ORDER BY 5 DESC
+LIMIT 10
+
+
+/*Third Slide*/
+
+  WITH t1 AS (SELECT i.store_id,
+      				CASE WHEN cat.name IN ('Animation','Children','Classics','Comedy','Family','Music') THEN
+      									   'Family Movies' ELSE 'Other Movies' END AS movie_categories,
+      					cat.name movie_type, pay.amount t1payamt, f.title, CONCAT(first_name,' ',last_name) full_name
+      			FROM category cat
+      			JOIN film_category fc
+      			ON cat.category_id = fc.category_id
+      			JOIN film f
+      			ON f.film_id = fc.film_id
+      			JOIN inventory i
+      			ON i.film_id = f.film_id
+      			JOIN rental r
+      			ON i.inventory_id = r.inventory_id
+      			JOIN payment pay
+      			ON r.rental_id = pay.rental_id
+            JOIN customer cust
+            ON cust.customer_id = pay.customer_id)
+SELECT full_name, store_id, movie_categories, movie_type, COUNT(*), SUM(t1payamt) sum_pay_amt,
+        NTILE (4) OVER (ORDER BY COUNT(*)) ntile_movie_count,
+        NTILE (4) OVER (ORDER BY SUM(t1payamt)) ntile_profit,
+        ((NTILE (4) OVER (ORDER BY COUNT(*)) +
+        NTILE (4) OVER (ORDER BY SUM(t1payamt)))/2) AS avg_ntile
+FROM t1
+GROUP BY 1,2,3,4
+ORDER BY 6 DESC
+
+
+/*Fourth Slide*/
+
+WITH t1 AS (SELECT i.store_id,
+                CASE WHEN cat.name IN ('Animation','Children','Classics','Comedy','Family','Music') THEN
+                'Family Movies' ELSE 'Other Movies' END AS movie_categories,
+                cat.name movie_type, pay.amount t1payamt, f.title, CONCAT(first_name,' ',last_name) full_name
+            FROM category cat
+            JOIN film_category fc
+            ON cat.category_id = fc.category_id
+            JOIN film f
+            ON f.film_id = fc.film_id
+            JOIN inventory i
+            ON i.film_id = f.film_id
+            JOIN rental r
+            ON i.inventory_id = r.inventory_id
+            JOIN payment pay
+            ON r.rental_id = pay.rental_id
+            JOIN customer cust
+            ON cust.customer_id = pay.customer_id),
+      t2 AS (SELECT full_name, store_id,movie_categories, movie_type, COUNT(*), SUM(t1payamt) sum_pay_amt,
+                      NTILE (4) OVER (ORDER BY COUNT(*)) ntile_movie_count,
+                      NTILE (4) OVER (ORDER BY SUM(t1payamt)) ntile_profit,
+                      ((NTILE (4) OVER (ORDER BY COUNT(*)) +
+                      NTILE (4) OVER (ORDER BY SUM(t1payamt)))/2) AS avg_ntile
+              FROM t1
+              GROUP BY 1,2,3,4
+              ORDER BY 6 DESC)
+SELECT DISTINCT full_name, sum_pay_amt
+FROM t2
+ORDER BY 2 DESC
